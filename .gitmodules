@@ -1,4 +1,0 @@
-[submodule "guesttools"]
-	path = guesttools
-	url = git@github.com:Smithx10/sdc-vmtools-lx-brand.git
-	branch = add_void_lx
