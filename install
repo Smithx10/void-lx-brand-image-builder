@@ -4,6 +4,7 @@
 #
 # Install Alpine into a directory, modify the installation, then tar it up.
 #
+export https_proxy=10.45.144.55:3128
 
 if [[ -n "$TRACE" ]]; then
   export PS4='[\D{%FT%TZ}] ${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
@@ -21,17 +22,16 @@ export PATH=$PATH:/sbin:/bin
 usage() {
 cat <<EOF
 
-Install and modify Alpine in a given directory in a given directory using a given mirror
+Install and modify Void in a given directory in a given directory using a given mirror
 
 Usage:
-  $0 -r <RELEASE> -a <APK_TOOLS> -d <INSTALL_DIR> -m <MIRROR> -i <IMAGE_NAME> -p <NAME> -D <DESC> -u <DOCS>
+  $0 -a <ARCH> -x <XBPS_TOOLS> -d <INSTALL_DIR> -m <MIRROR> -i <IMAGE_NAME> -p <NAME> -D <DESC> -u <DOCS>
 
 Example:
-  $0 -r 3.1 -a apk-tools-static-2.6.1-r0.apk -d /data/alpine -m http://mirrors.gigenet.com/alpinelinux/ -i alpine-3 -p "Alpine Linux" -D "Alpine 3.1.3 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
+  $0 -a <x86_64-musl> -x xbps-static-latest.x86_64-musl.tar.xz -d /data/void -m https://alpha.de.repo.voidlinux.org -i void -p "Void Linux" -D "Void 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
 
 OPTIONS:
-  -r The desired release (e.g "3.2")
-  -a The required apk-tools-static package (e.g. apk-tools-static-2.6.1-r0.apk)
+  -x The required xbps-tools-static package (e.g. xbps-static-latest.x86_64-musl.tar.xz)
   -d A path to the install directory
   -m A URL for the desired archive mirror
   -i The name of the image. This is used for naming the tarball.
@@ -43,8 +43,8 @@ OPTIONS:
 EOF
 }
 
-RELEASE=
-APK_TOOLS=
+ARCH=
+XBPS_TOOLS=
 INSTALL_DIR=
 MIRROR=
 IMAGE_NAME=
@@ -52,18 +52,18 @@ NAME=
 DESC=
 DOCS=
 
-while getopts "hr:a:d:m:i:p:D:u:" OPTION
+while getopts "ha:x:d:m:i:p:D:u:" OPTION
 do
 	case $OPTION in
 		h)
 			usage
 			exit
 			;;
-		r)
-			RELEASE=${OPTARG}
-			;;
 		a)
-			APK_TOOLS=${OPTARG}
+			ARCH=${OPTARG}
+			;;
+		x)
+			XBPS_TOOLS=${OPTARG}
 			;;
 		d)
 			INSTALL_DIR=${OPTARG%/}
@@ -95,13 +95,13 @@ if [[ $# -eq 0 ]]; then
 	exit 1
 fi
 
-if [[ -z ${RELEASE} ]]; then
-	echo "Error: missing release (-r) value"
+if [[ -z ${ARCH} ]]; then
+	echo "Error: missing arch (-a) value x86_64 || x86_64-musl"
 	exit 1
 fi
 
-if [[ -z ${APK_TOOLS} ]]; then
-	echo "Error: missing apk-tools-static package (-a) value"
+if [[ -z ${XBPS_TOOLS} ]]; then
+	echo "Error: missing void-tools-static package (-x) value"
 	exit 1
 fi
 
@@ -116,7 +116,7 @@ if [[ -z ${INSTALL_DIR} ]]; then
 fi
 
 if [[ -z ${MIRROR} ]]; then
-	echo "Error: missing mirror (-m) value"
+	echo "Error: missing libc (-m) value"
 	exit 1
 fi
 
@@ -136,7 +136,7 @@ if [[ -z ${DOCS} ]]; then
 	DOCS="https://docs.joyent.com/images/container-native-linux"
 fi
 
-echo "==> Installing Alpine into $INSTALL_DIR"
+echo "==> Installing Void into $INSTALL_DIR"
 
 if [[ -d $INSTALL_DIR ]]; then
 	echo "====> Found previous chroot. Deleting and creating a new one."
@@ -153,7 +153,7 @@ if [[ -d $INSTALL_DIR ]]; then
 	mkdir -p $INSTALL_DIR
 fi
 
-echo "===> Getting Alpine $RELEASE..."
+echo "===> Getting Void ..."
 
 if [[ ! -d tmp/ ]]; then
 	echo "===> creating tmp/ directory"
@@ -162,55 +162,39 @@ fi
 
 cd tmp/
 
-curl -sSO -f $MIRROR/v$RELEASE/main/x86_64/$APK_TOOLS
+export BIN="./usr/bin"
 
-echo "==> Extracting $APK_TOOLS"
-tar -xzf $APK_TOOLS
 
-echo "==> Adding alpine-devel@lists.alpinelinux.org keys"
-mkdir -p $INSTALL_DIR/etc/apk/keys
+wget -O - ${MIRROR}/static/xbps-static-latest.$(uname -m)-musl.tar.xz | \
+   tar Jx
 
-alpinekeys=( 4a6a0840 4d07755e 5243ef4b 524d27bb 5261cecb )
+echo "==> Adding void keys"
+mkdir -p ${INSTALL_DIR}/var/db/xbps/keys \
+   && cp ../keys/* ${INSTALL_DIR}/var/db/xbps/keys/ 
 
-for key in "${alpinekeys[@]}"; do
-	curl -sSo $INSTALL_DIR/etc/apk/keys/alpine-devel@lists.alpinelinux.org-$key.rsa.pub https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-$key.rsa.pub
-done
-
-echo "===> Installing Alpine base"
-./sbin/apk.static -X $MIRROR/v$RELEASE/main -U --root $INSTALL_DIR --initdb add alpine-base
-
-cd ..
-
-echo "==> Setting up resolv.conf"
-echo "nameserver 8.8.8.8" > $INSTALL_DIR/etc/resolv.conf
-echo "nameserver 8.8.4.4" >> $INSTALL_DIR/etc/resolv.conf
-
-echo "==> Setting up apk repositories using $MIRROR"
-mkdir -p $INSTALL_DIR/etc/apk
-
-cat << APK > $INSTALL_DIR/etc/apk/repositories
-$MIRROR/v$RELEASE/main
-$MIRROR/v$RELEASE/community
-APK
-
-echo "==> Mounting /proc /sys and /dev in the $INSTALL_DIR"
-mount -t proc none $INSTALL_DIR/proc
-mount -o bind /sys $INSTALL_DIR/sys
+echo "===> Installing Void base from ${MIRROR}"
+XBPS_ARCH=${ARCH} ${BIN}/xbps-install.static -yMU \
+  --repository=${MIRROR}/current \
+  --repository=${MIRROR}/current/musl \
+  -r ${INSTALL_DIR} \
+  base-minimal \
+  bash \
+  curl \
+  gettext \
+  less \
+  man \
+  openssh \
+  tzdata \
+  vim \
+  wget \
+  ncurses \
+  iproute2 \
+  iputils
 
 echo "==> Setting TZ to UTC"
-chroot $INSTALL_DIR apk add --update tzdata
-cp $INSTALL_DIR/usr/share/zoneinfo/UTC $INSTALL_DIR/etc/localtime
-chroot $INSTALL_DIR apk del --purge tzdata
-
-echo "==> Installing packages..."
-chroot $INSTALL_DIR apk update
-chroot $INSTALL_DIR apk add --update bash curl gettext less man ncurses-terminfo openssh vim wget
-
-echo "==> Removing Linux kernel packages"
-#chroot $INSTALL_DIR apk del --purge linux-grsec
-
-echo "==> Make sure apk packages are up-to-date"
-chroot $INSTALL_DIR apk upgrade
+#chroot $INSTALL_DIR apk add --update tzdata
+#cp $INSTALL_DIR/usr/share/zoneinfo/UTC $INSTALL_DIR/etc/localtime
+#chroot $INSTALL_DIR apk del --purge tzdata
 
 echo "==> Disabling PasswordAuthentication"
 sed -ri s/^#?PasswordAuthentication\ no/PasswordAuthentication\ no/ -i $INSTALL_DIR/etc/ssh/sshd_config
@@ -220,40 +204,7 @@ echo "==> Enabling UsePrivilegeSeparation (default is 'sandbox')"
 sed s/UsePrivilegeSeparation\ sandbox/UsePrivilegeSeparation\ yes/ -i $INSTALL_DIR/etc/ssh/sshd_config
 sed s/#UsePrivilegeSeparation\ yes/UsePrivilegeSeparation\ yes/ -i $INSTALL_DIR/etc/ssh/sshd_config
 
-echo "==> Adding initscripts to make sure Alpine is bootable"
-chroot $INSTALL_DIR rc-update add devfs sysinit
-chroot $INSTALL_DIR rc-update add dmesg sysinit
-chroot $INSTALL_DIR rc-update add mdev sysinit
 
-chroot $INSTALL_DIR rc-update add bootmisc boot
-chroot $INSTALL_DIR rc-update add hostname boot
-chroot $INSTALL_DIR rc-update add hwclock boot
-chroot $INSTALL_DIR rc-update add modules boot
-chroot $INSTALL_DIR rc-update add networking boot
-chroot $INSTALL_DIR rc-update add sysctl boot
-chroot $INSTALL_DIR rc-update add syslog boot
-
-chroot $INSTALL_DIR rc-update add crond default
-chroot $INSTALL_DIR rc-update add local default
-chroot $INSTALL_DIR rc-update add sshd default
-
-chroot $INSTALL_DIR rc-update add mount-ro shutdown
-chroot $INSTALL_DIR rc-update add killprocs shutdown
-chroot $INSTALL_DIR rc-update add savecache shutdown
-
-echo "==> Making /sbin/init symlink relative"
-rm $INSTALL_DIR/sbin/init
-pushd $PWD
-cd $INSTALL_DIR/sbin/
-ln -s ../bin/busybox init
-popd
-
-#echo "==> Making /usr/bin/su symlink relative"
-#rm $INSTALL_DIR/usr/bin/su
-#pushd $PWD
-#cd $INSTALL_DIR/usr/bin/
-#ln -s ../../bin/bbsuid ./su
-#popd
 
 echo "==> Creating /etc/motd"
 cat << MOTD > $INSTALL_DIR/etc/motd
@@ -274,19 +225,18 @@ Documentation: $DOCS
 Description: $DESC
 PRODUCT
 
-echo "==> Installing Guest tools in $INSTALL_DIR"
-echo "====> Initiallizing and fetching submodule $GUESTTOOLS"
-git submodule init
-git submodule update
+touch ${INSTALL_DIR}/etc/void-release
 
+echo "==> Installing Guest tools in $INSTALL_DIR"
 echo "====> Running ./install.sh -i $INSTALL_DIR"
 (
-	cd $GUESTTOOLS
+	cd ../$GUESTTOOLS
 	./install.sh -i $INSTALL_DIR
 )
 
+
 echo "==> Saving installation as $TARGET. This may take a few minutes."
-tar czf $TARGET --exclude-from=exclude.txt $INSTALL_DIR/
+tar czf $TARGET --exclude-from=../exclude.txt $INSTALL_DIR/
 
 echo "==> Installation complete!"
 echo "==> $TARGET"
