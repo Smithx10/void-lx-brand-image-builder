@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
 usage() {
 cat <<EOF
 
-This is a wrapper script for the 'halt' and 'reboot' commands in Alpine Linux 
+This is a wrapper script for the 'halt' and 'reboot' commands in Void Linux 
 (and BusyBox). It provides compatibility when run under SmartOS lx-brand when 
 issuing a 'vmadm stop' and 'vmadm reboot' command.
 
