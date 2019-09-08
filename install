@@ -4,8 +4,6 @@
 #
 # Install Alpine into a directory, modify the installation, then tar it up.
 #
-export https_proxy=10.45.144.55:3128
-
 if [[ -n "$TRACE" ]]; then
   export PS4='[\D{%FT%TZ}] ${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
   set -o xtrace

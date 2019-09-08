@@ -4,13 +4,13 @@
 #
 # Void specific setup
 # 
-# load common functions and vars
-. /lib/smartdc/common.lib
-
 #  Configure resolv.conf  if not set
 if [ ! -e /etc/resolv.conf ]; then
   echo "# AUTOMATIC ZONE CONFIG" > /etc/resolv.conf
   for i in $(mdata-get sdc:resolvers | jq -r .[]); do
-    echo namserver $i >> /etc/resolv.conf
+    echo nameserver $i >> /etc/resolv.conf
   done
 fi
+# load common functions and vars
+. /lib/smartdc/common.lib
+
