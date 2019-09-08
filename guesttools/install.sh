@@ -148,7 +148,7 @@ case $OS in
     elif [[ -f $INSTALL_DIR/etc/debian_version ]] ; then
       install_debian
     elif [[ -f $INSTALL_DIR/etc/alpine-release ]] ; then
-      install_alpine
+      install_void
     elif [[ -f $INSTALL_DIR/etc/void-release ]] ; then
       install_void
     elif [[ -f $INSTALL_DIR/etc/arch-release ]] ; then
