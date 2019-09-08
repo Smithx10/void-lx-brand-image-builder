@@ -200,7 +200,7 @@ rm -rf ${INSTALL_DIR}/etc/runit/core-services/02-udev.sh
 rm -rf ${INSTALL_DIR}/etc/runit/core-services/03-filesystems.sh
 
 echo "==> linking required runit services"
-mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/current
+#mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/current
 mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/default
 mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/single
 chroot ${INSTALL_DIR} ln -s /etc/sv/sshd /etc/runit/runsvdir/default
