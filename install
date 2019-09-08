@@ -241,7 +241,7 @@ Documentation: $DOCS
 Description: $DESC
 PRODUCT
 
-touch ${INSTALL_DIR}/etc/alpine-release
+touch ${INSTALL_DIR}/etc/void-release
 
 echo "==> Installing Guest tools in $INSTALL_DIR"
 echo "====> Running ./install.sh -i $INSTALL_DIR"
