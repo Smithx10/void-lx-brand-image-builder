@@ -192,19 +192,22 @@ XBPS_ARCH=${ARCH} ${BIN}/xbps-install.static -yMU \
   iproute2 \
   iputils
 
+chroot ${INSTALL_DIR} xbps-reconfigure -a
+
 echo "==> Removing unecessary runit services"
-rm -rf ${INSTALL_DIR}/etc/runit/core-services/00-pseudofs.sh
 rm -rf ${INSTALL_DIR}/etc/runit/core-services/01-static-devnodes.sh
 rm -rf ${INSTALL_DIR}/etc/runit/core-services/02-kmods.sh
 rm -rf ${INSTALL_DIR}/etc/runit/core-services/02-udev.sh
 rm -rf ${INSTALL_DIR}/etc/runit/core-services/03-filesystems.sh
 
 echo "==> linking required runit services"
-mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/current
-mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/default
-mkdir -p ${INSTALL_DIR}/etc/runit/runsvdir/single
 chroot ${INSTALL_DIR} ln -s /etc/sv/sshd /etc/runit/runsvdir/default
-chroot ${INSTALL_DIR} ln -s /etc/sv/sulogin /etc/runit/runsvdir/single
+
+echo "==> removing agetty from default"
+for i in {1..6}; do 
+  touch ${INSTALL_DIR}/etc/sv/agetty-tty$i/down
+  rm -rf  ${INSTALL_DIR}/etc/runit/runsvdir/default/agetty-tty$i
+done
 
 # Set random root pw
 chroot ${INSTALL_DIR} passwd -d root
@@ -238,7 +241,7 @@ Documentation: $DOCS
 Description: $DESC
 PRODUCT
 
-touch ${INSTALL_DIR}/etc/void-release
+touch ${INSTALL_DIR}/etc/alpine-release
 
 echo "==> Installing Guest tools in $INSTALL_DIR"
 echo "====> Running ./install.sh -i $INSTALL_DIR"
@@ -247,7 +250,6 @@ echo "====> Running ./install.sh -i $INSTALL_DIR"
 	./install.sh -i $INSTALL_DIR
 )
 
-chroot ${INSTALL_DIR} xbps-reconfigure -a
 
 echo "==> Saving installation as $TARGET. This may take a few minutes."
 tar czf $TARGET --exclude-from=../exclude.txt $INSTALL_DIR/
